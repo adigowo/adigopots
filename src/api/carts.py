@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from src.api import auth
 from enum import Enum
 
-
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],

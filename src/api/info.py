@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from src.api import auth
 
-
 router = APIRouter(
     prefix="/info",
     tags=["info"],
