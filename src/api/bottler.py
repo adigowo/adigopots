@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
-from src.database import engine  # Assuming your database setup is in src/database.py
+from src.database import engine  
 
 router = APIRouter(
     prefix="/bottler",
@@ -11,7 +11,7 @@ router = APIRouter(
 )
 
 class PotionInventory(BaseModel):
-    potion_type: list[int]  # Assuming [0, 0, 100, 0] represents 100% green potion
+    potion_type: list[int]  
     quantity: int
 
 @router.post("/deliver/{order_id}")
@@ -33,17 +33,17 @@ def get_bottle_plan():
             num_green_potions = num_green_potions + :new_potions
         WHERE id=1;
     """
-    with engine.begin() as connection:  # Ensure engine is correctly defined in your database.py
+    with engine.begin() as connection:  
         current_inventory = connection.execute(sqlalchemy.text(select_sql)).fetchone()
         if current_inventory:
             num_green_ml = current_inventory['num_green_ml']
-            # Assuming each potion requires 100 ml
+           
             new_potions = num_green_ml // 100
             if new_potions > 0:
                 used_ml = new_potions * 100
                 connection.execute(sqlalchemy.text(update_sql), used_ml=used_ml, new_potions=new_potions)
                 bottle_plan.append({
-                    "potion_type": [0, 0, 100, 0],  # Representing 100% green potion
+                    "potion_type": [0, 0, 100, 0], 
                     "quantity": new_potions,
                 })
     return bottle_plan

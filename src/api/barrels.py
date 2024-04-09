@@ -28,13 +28,13 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """Determines which barrels to purchase based on inventory and gold."""
     purchase_plan = []
-    # SQL query to check current inventory and gold
+    # SQL query 
     select_sql = "SELECT num_green_potions, gold FROM global_inventory WHERE id=1;"
-    with engine.begin() as connection:  # Make sure you have defined engine in your database.py
+    with engine.begin() as connection:  
         result = connection.execute(text(select_sql)).fetchone()
         if result:
             num_green_potions, gold = result
-            # Assuming each green barrel costs 50 gold and you add 1000 ml per barrel
+            
             if num_green_potions < 10 and gold >= 50:
                 for barrel in wholesale_catalog:
                     if barrel.sku == "SMALL_GREEN_BARREL" and barrel.price <= gold:
@@ -43,7 +43,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                             "sku": barrel.sku,
                             "quantity": quantity_to_buy,
                         })
-                        # Update gold and num_green_ml in inventory
+                       
                         update_sql = """
                         UPDATE global_inventory
                         SET gold = gold - (:price * :quantity),

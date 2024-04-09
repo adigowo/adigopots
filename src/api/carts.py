@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
-from src.database import engine  # Ensure your database setup is correct in src/database.py
+from src.database import engine  
 
 router = APIRouter(
     prefix="/carts",
@@ -10,11 +10,10 @@ router = APIRouter(
     dependencies=[Depends(auth.get_api_key)],
 )
 
-# Assuming the rest of your class definitions remain the same
 
 class CartCheckout(BaseModel):
     payment: str
-    quantity: int  # Added to represent how many potions are being bought
+    quantity: int  #potions are bought
 
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
@@ -31,7 +30,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             gold = gold + (:quantity * :price_per_potion)
         WHERE id=1;
     """
-    price_per_potion = 10  # Assuming each potion sells for 10 gold
+    price_per_potion = 10  
     total_cost = cart_checkout.quantity * price_per_potion
     
     with engine.begin() as connection:
