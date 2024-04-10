@@ -43,3 +43,45 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             else:
                 return {"error": "Not enough potions in stock."}
     return {"error": "Checkout failed."}
+
+class Customer(BaseModel):
+    customer_name: str
+    character_class: str
+    level: int
+
+@router.post("/visits/{visit_id}")
+def post_visits(visit_id: int, customers: list[Customer]):
+    """
+    Which customers visited the shop today?
+    """
+    print(customers)
+
+    return "OK"
+
+
+@router.post("/")
+def create_cart(new_cart: Customer):
+    """ """
+    return {"cart_id": 1}
+
+
+class CartItem(BaseModel):
+    quantity: int
+
+
+@router.post("/{cart_id}/items/{item_sku}")
+def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
+    """ """
+
+    return "OK"
+
+
+class CartCheckout(BaseModel):
+    payment: str
+
+@router.post("/{cart_id}/checkout")
+def checkout(cart_id: int, cart_checkout: CartCheckout):
+    """ """
+
+    return {"total_potions_bought": 1, "total_gold_paid": 50}
+
