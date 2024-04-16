@@ -26,7 +26,7 @@ def get_catalog():
                     "name": "green potion",
                     "quantity": num_green_potions,
                     "price": price_per_potion,
-                    "potion_type": [0, 0, 100, 0], 
+                    "potion_type": [0, 100, 0, 0], 
                 }]
             else:
                 return [{"error": "No green potions available."}]
