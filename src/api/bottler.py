@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from src.api import auth
 import sqlalchemy
-from src.database import engine  
+from src.api import auth
+from src.database import engine   
 
 router = APIRouter(
     prefix="/bottler",
@@ -15,9 +15,28 @@ class PotionInventory(BaseModel):
     quantity: int
 
 @router.post("/deliver/{order_id}")
-def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
+def post_deliver_potions(potions_delivered: list[PotionInventory], order_id: int):
     """Endpoint for delivering bottled potions."""
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
+    
+    total_ml = 0
+    total_potions = 0
+    with engine.begin() as connection:
+        for potion in potions_delivered:
+            green_ml = potion.potion_type[1] * potion.quantity  # Calculate green ml based on quantity
+            total_ml += green_ml
+            total_potions += potion.quantity
+
+        # Update global inventory
+        connection.execute(sqlalchemy.text("""
+            UPDATE global_inventory
+            SET num_green_ml = num_green_ml - :total_ml,
+                num_green_potions = num_green_potions + :total_potions
+        """), {
+            "total_ml": total_ml, 
+            "total_potions": total_potions
+        })
+
     return "OK"
 
 @router.post("/plan")
@@ -26,26 +45,27 @@ def get_bottle_plan():
     Go from barrel to bottle for green potions.
     """
     bottle_plan = []
-    select_sql = "SELECT num_green_ml FROM global_inventory WHERE id=1;"
-    update_sql = """
-        UPDATE global_inventory
-        SET num_green_ml = num_green_ml - :used_ml,
-            num_green_potions = num_green_potions + :new_potions
-        WHERE id=1;
-    """
+    
     with engine.begin() as connection:  
-        current_inventory = connection.execute(sqlalchemy.text(select_sql)).fetchone()
-        if current_inventory:
-            num_green_ml = current_inventory['num_green_ml']
+
+        result = connection.execute(sqlalchemy.text("SELECT num_green_ml,num_green_potions,gold FROM global_inventory"))
+        row = result.fetchone()
+        num_green_ml = row[0]
+        num_green_potions = row[1]
+       
            
-            new_potions = num_green_ml // 100
-            if new_potions > 0:
-                used_ml = new_potions * 100
-                connection.execute(sqlalchemy.text(update_sql), used_ml=used_ml, new_potions=new_potions)
-                bottle_plan.append({
-                    "potion_type": [0, 0, 100, 0], 
-                    "quantity": new_potions,
-                })
+        new_potions = num_green_ml // 100
+        used_ml = new_potions * 100
+        
+
+        num_green_ml = num_green_ml - used_ml
+        new_potions = num_green_potions + new_potions
+
+
+        bottle_plan.append({
+                "potion_type": [0, 100, 0, 0], 
+                "quantity": new_potions,
+        })
     return bottle_plan
 
 if __name__ == "__main__":

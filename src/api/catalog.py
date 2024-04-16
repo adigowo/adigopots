@@ -10,7 +10,7 @@ def get_catalog():
     Fetches the current catalog of potions available for sale, focusing on green potions for Version 1.
     """
     #number of green potions available and their price
-    select_sql = "SELECT num_green_potions, gold FROM global_inventory WHERE id=1;"
+    select_sql = "SELECT num_green_potions, gold FROM global_inventory;"
 
     with engine.connect() as connection:
         result = connection.execute(sqlalchemy.text(select_sql)).fetchone()
