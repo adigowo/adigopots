@@ -23,12 +23,11 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     - Updating the inventory to reflect the sale.
     - Increasing the store's gold by the sale amount.
     """
-    select_sql = "SELECT num_green_potions, gold FROM global_inventory WHERE id=1;"
+    select_sql = "SELECT num_green_potions, gold FROM global_inventory;"
     update_sql = """
         UPDATE global_inventory
         SET num_green_potions = num_green_potions - :quantity,
             gold = gold + (:quantity * :price_per_potion)
-        WHERE id=1;
     """
     price_per_potion = 10  
     total_cost = cart_checkout.quantity * price_per_potion
@@ -62,7 +61,10 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
-    return {"cart_id": 1}
+    with engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text("INSERT INTO carts (customer_name) VALUES (:name) RETURNING cart_id"), name=new_cart.customer_name)
+        cart_id = result.fetchone()[0]
+        return {"cart_id": cart_id}
 
 
 class CartItem(BaseModel):
@@ -71,9 +73,9 @@ class CartItem(BaseModel):
 
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
-    """ """
-
-    return "OK"
+    with engine.begin() as connection:
+        connection.execute(sqlalchemy.text("INSERT INTO cart_items (cart_id, item_sku, quantity) VALUES (:cart_id, :item_sku, :quantity) ON CONFLICT (cart_id, item_sku) DO UPDATE SET quantity = :quantity"), cart_id=cart_id, item_sku=item_sku, quantity=cart_item.quantity)
+        return {"message": "Cart updated"}
 
 
 class CartCheckout(BaseModel):
