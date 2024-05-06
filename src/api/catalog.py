@@ -2,7 +2,6 @@ from fastapi import APIRouter
 import sqlalchemy
 from src.database import engine  
 
-
 router = APIRouter()
 
 @router.get("/catalog/", tags=["catalog"])
@@ -21,17 +20,24 @@ def get_catalog():
 
     # return catalog
 
-    select_sql = "SELECT potion_id, potion_name, inventory, red, green, blue, dark, price FROM potions;"
-    with engine.connect() as connection:
-        results = connection.execute(sqlalchemy.text(select_sql)).all()
-        catalog = [{
-            "sku": f"POTION_{row.potion_id}",
-            "name": row.potion_name,
-            "quantity": row.inventory,
-            "price": row.price,
-            "potion_type": [row.red, row.green, row.blue, row.dark]
-        } for row in results]
-        return catalog if catalog else [{"error": "No potions available."}]
+    catalog = []
+    with engine.begin() as connection:
+        results = connection.execute(sqlalchemy.text("SELECT inventory, sku, type, price FROM potion_catalog")).all()
+        for row in results:
+            catalog.append({"sku": row.sku, "quantity": row.inventory, "potion_type": row.type, "price": row.price})
+        return catalog
+
+    # select_sql = "SELECT potion_id, potion_name, inventory, red, green, blue, dark, price FROM potions;"
+    # with engine.connect() as connection:
+    #     results = connection.execute(sqlalchemy.text(select_sql)).all()
+    #     catalog = [{
+    #         "sku": f"POTION_{row.potion_id}",
+    #         "name": row.potion_name,
+    #         "quantity": row.inventory,
+    #         "price": row.price,
+    #         "potion_type": [row.red, row.green, row.blue, row.dark]
+    #     } for row in results]
+    #     return catalog if catalog else [{"error": "No potions available."}]
 
 
 
