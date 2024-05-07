@@ -67,56 +67,39 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         return "OK"
 
 
-
-
-# @router.post("/deliver/{order_id}")
-# def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
-#     """Endpoint for delivering barrels."""
-#     with engine.begin() as connection:
-#         # Get the current inventory and gold
-#         result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml, gold FROM global_inventory"))
-#         row = result.fetchone()
-#         num_red_ml, num_green_ml, num_blue_ml, gold = row
-        
-#         # Update inventory and gold based on delivered barrels
-#         for barrel in barrels_delivered:
-#             gold -= barrel.price
-#             if barrel.potion_type == [100, 0, 0]:  # Red potion
-#                 num_red_ml += barrel.ml_per_barrel * barrel.quantity
-#             elif barrel.potion_type == [0, 100, 0]:  # Green potion
-#                 num_green_ml += barrel.ml_per_barrel * barrel.quantity
-#             elif barrel.potion_type == [0, 0, 100]:  # Blue potion
-#                 num_blue_ml += barrel.ml_per_barrel * barrel.quantity
-
-#         # Update the database do insert not update 
-#         connection.execute(sqlalchemy.text(
-#             "UPDATE global_inventory SET num_red_ml=:red, num_green_ml=:green, num_blue_ml=:blue, gold=:gold"),
-#             {"red": num_red_ml, "green": num_green_ml, "blue": num_blue_ml, "gold": gold}
-#         )
-
-#     return "OK"
-
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """Determines which barrels to purchase based on inventory and gold."""
 
-    purchase_plan = []
+
+    with db.engine.begin() as connection:
+        # Get the current ml values
+        money = connection.execute(sqlalchemy.text("SELECT gold FROM gold_ledger")).fetchone()
+
+        gold = money.gold if money else 0
+
+        purchase_plan = []
+
+        # Get the current ml values
+        result = connection.execute(sqlalchemy.text("SELECT red_ml, green_ml, blue_ml, dark_ml FROM ml_ledger")).fetchone()[0]
     
-    with engine.begin() as connection:
-        # Get the current inventory and gold
-        result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml, gold FROM global_inventory"))
-        row = result.fetchone()
-        num_red_ml, num_green_ml, num_blue_ml, gold = row
+        red_ml = result.red_ml if result else 0
+        green_ml = result.green_ml if result else 0
+        blue_ml = result.blue_ml if result else 0
+        dark_ml = result.dark_ml if result else 0
+
         
         # Decide on purchasing based on the potion needs
         for barrel in wholesale_catalog:
             if gold > barrel.price:
                 quantity_to_buy = min(gold // barrel.price, barrel.quantity)
-                if barrel.potion_type == [100, 0, 0] and num_red_ml < 1000:
+                if barrel.potion_type == [1, 0, 0, 0] and red_ml < 1000:
                     purchase_plan.append({"sku": barrel.sku, "quantity": quantity_to_buy})
-                elif barrel.potion_type == [0, 100, 0] and num_green_ml < 1000:
+                elif barrel.potion_type == [0, 1, 0, 0] and green_ml < 1000:
                     purchase_plan.append({"sku": barrel.sku, "quantity": quantity_to_buy})
-                elif barrel.potion_type == [0, 0, 100] and num_blue_ml < 1000:
+                elif barrel.potion_type == [0, 0, 1, 0] and blue_ml < 1000:
+                    purchase_plan.append({"sku": barrel.sku, "quantity": quantity_to_buy})
+                elif barrel.potion_type == [0, 0, 0, 1] and dark_ml < 1000:
                     purchase_plan.append({"sku": barrel.sku, "quantity": quantity_to_buy})
 
         return purchase_plan
