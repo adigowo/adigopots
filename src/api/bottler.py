@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-import sqlalchemy
 from src.api import auth
-from src.database import engine   
+import sqlalchemy
+from src.database import engine  
 
 router = APIRouter(
     prefix="/bottler",
@@ -48,24 +48,44 @@ def get_bottle_plan():
     
     with engine.begin() as connection:  
 
-        result = connection.execute(sqlalchemy.text("SELECT num_green_ml,num_green_potions,gold FROM global_inventory"))
+        result = connection.execute(sqlalchemy.text("SELECT num_green_ml, num_green_potions, num_red_ml, num_red_potions, num_blue_ml, num_blue_potions gold FROM global_inventory"))
         row = result.fetchone()
         num_green_ml = row[0]
         num_green_potions = row[1]
+        num_red_ml = row[2]
+        num_red_potions = row[3]
+        num_blue_ml = row[4]
+        num_blue_potions = row[5]
        
            
-        new_potions = num_green_ml // 100
-        used_ml = new_potions * 100
+        # new_green_potions = num_green_ml // 100
+        # used_ml = new_potions * 100
         
 
-        num_green_ml = num_green_ml - used_ml
-        new_potions = num_green_potions + new_potions
+        # num_green_ml = num_green_ml - used_ml
+        # new_potions = num_green_potions + new_potions
+
+        if num_green_ml > 50:
+            bottle_plan.append({
+                "potion_type": [0, 100, 0], 
+                "quantity": 1,
+            })
+
+        elif num_red_ml > 50:
+            bottle_plan.append({
+                "potion_type": [100, 0, 0], 
+                "quantity": 1,
+            })
+        
+        elif num_blue_ml > 50:
+            bottle_plan.append({
+                "potion_type": [0, 0, 100], 
+                "quantity": 1,
+            })
+        
+        
 
 
-        bottle_plan.append({
-                "potion_type": [0, 100, 0, 0], 
-                "quantity": new_potions,
-        })
     return bottle_plan
 
 if __name__ == "__main__":
