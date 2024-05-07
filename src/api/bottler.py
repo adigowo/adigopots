@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
 import sqlalchemy
-from src.database import engine  
+from sqlalchemy import exc
+from src import database as db
 
 router = APIRouter(
     prefix="/bottler",
@@ -17,26 +18,51 @@ class PotionInventory(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_potions(potions_delivered: list[PotionInventory], order_id: int):
     """Endpoint for delivering bottled potions."""
-    print(f"potions delivered: {potions_delivered} order_id: {order_id}")
+    print("potions delivered: {potions_delivered} order_id: {order_id}")
+
+    red_used = 0
+    green_used = 0
+    blue_used = 0
+    dark_used = 0
+    transaction = -1
     
-    total_ml = 0
-    total_potions = 0
-    with engine.begin() as connection:
+    with db.engine.begin() as connection:
         for potion in potions_delivered:
-            green_ml = potion.potion_type[1] * potion.quantity  # Calculate green ml based on quantity
-            total_ml += green_ml
-            total_potions += potion.quantity
-
-        # Update global inventory
-        connection.execute(sqlalchemy.text("""
-            UPDATE global_inventory
-            SET num_green_ml = num_green_ml - :total_ml,
-                num_green_potions = num_green_potions + :total_potions
-        """), {
-            "total_ml": total_ml, 
-            "total_potions": total_potions
-        })
-
+            red_used -= potion.potion_type[0] * potion.quantity
+            green_used -= potion.potion_type[1] * potion.quantity
+            blue_used -= potion.potion_type[2] * potion.quantity
+            dark_used -= potion.potion_type[3] * potion.quantity
+        
+        connection.execute(
+            sqlalchemy.text(
+            """
+            INSERT INTO ml_ledger
+            (transaction_id, red_ml, green_ml, blue_ml, dark_ml)
+            VALUES (:transaction_id, :red_ml, :green_ml, :blue_ml, :dark_ml)
+            """
+            ),
+            [{
+            "transaction_id": transaction,
+            "red_ml": red_used,
+            "green_ml": green_used,
+            "blue_ml": blue_used,
+            "dark_ml": dark_used}])
+        
+        for potion in potions_delivered:
+            
+             connection.execute(
+                sqlalchemy.text(
+                """
+                INSERT INTO potion_ledger
+                (transaction_id, potion_id, quantity )
+                VALUES (:transaction_id, :potion_id, :quantity)
+                """
+                ),
+                [{
+                "transaction_id": transaction,
+                "potion_id": potion.potion_type,
+                "quantity": potion.quantity,}])
+             
     return "OK"
 
 @router.post("/plan")
@@ -46,7 +72,7 @@ def get_bottle_plan():
     """
     bottle_plan = []
     
-    with engine.begin() as connection:  
+    with db.engine.begin() as connection:  
 
         result = connection.execute(sqlalchemy.text("SELECT num_green_ml, num_green_potions, num_red_ml, num_red_potions, num_blue_ml, num_blue_potions gold FROM global_inventory"))
         row = result.fetchone()

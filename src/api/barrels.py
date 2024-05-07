@@ -48,8 +48,6 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
             else:
                 raise Exception("invalid barrel")
             
-            transaction += 1
-
             connection.execute(
                 sqlalchemy.text(
             """
