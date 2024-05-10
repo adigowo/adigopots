@@ -1,47 +1,81 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from src.api import auth
-import sqlalchemy
-from src.database import engine  
+from enum import Enum
+
+from sqlalchemy import select, desc, asc
+
 
 router = APIRouter(
     prefix="/carts",
-    tags=["carts"],
+    tags=["cart"],
     dependencies=[Depends(auth.get_api_key)],
 )
 
+class search_sort_options(str, Enum):
+    customer_name = "customer_name"
+    item_sku = "item_sku"
+    line_item_total = "line_item_total"
+    timestamp = "timestamp"
 
-class CartCheckout(BaseModel):
-    payment: str
-    quantity: int  #potions are bought
+class search_sort_order(str, Enum):
+    asc = "asc"
+    desc = "desc"   
 
-@router.post("/{cart_id}/checkout")
-def checkout(cart_id: int, cart_checkout: CartCheckout):
-    """
-    Process a cart checkout. This involves:
-    - Checking if the requested quantity of green potions is available.
-    - Updating the inventory to reflect the sale.
-    - Increasing the store's gold by the sale amount.
-    """
-    select_sql = "SELECT num_green_potions, gold FROM global_inventory;"
-    update_sql = """
-        UPDATE global_inventory
-        SET num_green_potions = num_green_potions - :quantity,
-            gold = gold + (:quantity * :price_per_potion)
-    """
-    price_per_potion = 10  
-    total_cost = cart_checkout.quantity * price_per_potion
-    
-    with engine.begin() as connection:
-        current_inventory = connection.execute(sqlalchemy.text(select_sql)).fetchone()
-        if current_inventory:
-            num_green_potions, _ = current_inventory
-            if num_green_potions >= cart_checkout.quantity:
-                connection.execute(sqlalchemy.text(update_sql), quantity=cart_checkout.quantity, price_per_potion=price_per_potion)
-                return {"total_potions_bought": cart_checkout.quantity, "total_gold_paid": total_cost}
-            else:
-                return {"error": "Not enough potions in stock."}
-    return {"error": "Checkout failed."}
+@router.get("/search/", tags=["search"])
+def search_orders(
+    customer_name: str = "",
+    potion_sku: str = "",
+    search_page: str = "",
+    sort_col: search_sort_options = search_sort_options.timestamp,
+    sort_order: search_sort_order = search_sort_order.desc,
+):
+    query = select(LineItem)
+
+
+    if customer_name:
+        query = query.where(LineItem.customer_name.ilike(f"%{customer_name}%"))
+    if potion_sku:
+        query = query.where(LineItem.item_sku.ilike(f"%{potion_sku}%"))
+
+
+    sort_expression = {
+        search_sort_options.customer_name: LineItem.customer_name,
+        search_sort_options.item_sku: LineItem.item_sku,
+        search_sort_options.line_item_total: LineItem.line_item_total,
+        search_sort_options.timestamp: LineItem.timestamp,
+    }[sort_col]
+
+    if sort_order == search_sort_order.desc:
+        query = query.order_by(desc(sort_expression))
+    else:
+        query = query.order_by(asc(sort_expression))
+
+
+    if search_page:
+        query = query.offset(int(search_page) * 5)  
+    query = query.limit(5)
+
+  
+    with db.engine.connect() as conn:
+        result = conn.execute(query)
+        items = [
+            {
+                "line_item_id": row.LineItem.id,
+                "item_sku": row.LineItem.item_sku,
+                "customer_name": row.LineItem.customer_name,
+                "line_item_total": row.LineItem.line_item_total,
+                "timestamp": row.LineItem.timestamp.isoformat(),
+            }
+            for row in result
+        ]
+
+    return {
+        "previous": "" if search_page == "" else max(0, int(search_page) - 1),
+        "next": int(search_page) + 1 if items else "",
+        "results": items
+    }
+
 
 class Customer(BaseModel):
     customer_name: str
@@ -61,10 +95,7 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
-    with engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("INSERT INTO carts (customer_name) VALUES (:name) RETURNING cart_id"), name=new_cart.customer_name)
-        cart_id = result.fetchone()[0]
-        return {"cart_id": cart_id}
+    return {"cart_id": 1}
 
 
 class CartItem(BaseModel):
@@ -73,9 +104,9 @@ class CartItem(BaseModel):
 
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
-    with engine.begin() as connection:
-        connection.execute(sqlalchemy.text("INSERT INTO cart_items (cart_id, item_sku, quantity) VALUES (:cart_id, :item_sku, :quantity) ON CONFLICT (cart_id, item_sku) DO UPDATE SET quantity = :quantity"), cart_id=cart_id, item_sku=item_sku, quantity=cart_item.quantity)
-        return {"message": "Cart updated"}
+    """ """
+
+    return "OK"
 
 
 class CartCheckout(BaseModel):
@@ -86,4 +117,3 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
 
     return {"total_potions_bought": 1, "total_gold_paid": 50}
-

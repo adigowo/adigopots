@@ -55,7 +55,7 @@ def post_deliver_potions(potions_delivered: list[PotionInventory], order_id: int
                 """
                 INSERT INTO potion_ledger
                 (transaction_id, potion_id, quantity )
-                VALUES (:transaction_id, :potion_id, :quantity)
+                VALUES (:transaction_id, :potion_id:, :quantity)
                 """
                 ),
                 [{
